@@ -1,0 +1,42 @@
+name: Chart Testing Lint (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      chart_path:
+        description: Path to the chart directory (contains Chart.yaml)
+        required: false
+        type: string
+        default: chart
+      target_branch:
+        description: Base branch used by ct
+        required: false
+        type: string
+        default: main
+
+jobs:
+  ct-lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch target branch
+        run: |
+          git fetch --no-tags --prune --depth=1 origin \
+            +refs/heads/${{ inputs.target_branch }}:refs/remotes/origin/${{ inputs.target_branch }}
+
+      - uses: azure/setup-helm@v4
+
+      - uses: helm/chart-testing-action@v2.7.0
+
+      - name: Run ct lint
+        run: |
+          ct lint \
+            --target-branch "${{ inputs.target_branch }}" \
+            --charts "${{ inputs.chart_path }}" \
+            --check-version-increment=false \
+            --validate-maintainers=false
