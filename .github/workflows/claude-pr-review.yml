@@ -19,46 +19,38 @@ jobs:
           fetch-depth: 0
 
       - name: Claude PR Review
-        id: claude
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
-          claude_args: |
-            --model claude-sonnet-4-6 --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["APPROVE","REQUEST_CHANGES","COMMENT"]},"summary":{"type":"string"}},"required":["verdict","summary"]}'
+          claude_args: >-
+            --model claude-sonnet-4-6
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr review:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
           prompt: |
-            Review this pull request thoroughly. Look for:
-            - Bugs or logic errors
-            - Security issues
-            - Missing error handling at system boundaries
-            - Resource misconfigurations (especially for Kubernetes manifests)
-            - Code style issues or unnecessary complexity
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
 
-            Post inline comments on specific lines where you find issues.
+            Review this pull request using the following process:
 
-            Then output a JSON verdict:
-            - "APPROVE" if the PR looks good to merge
-            - "REQUEST_CHANGES" if there are issues that must be fixed
-            - "COMMENT" if you have suggestions but nothing blocking
+            1. **Map the context**: Start by understanding what this PR is trying to accomplish.
+               Read the title, description, and changed files to build a clear picture of the
+               intent before evaluating anything.
 
-            Include a brief summary of your findings.
+            2. **Check for code smells**: Does anything feel unconventional or designed in an
+               unproductive way? Look for over-engineering, awkward abstractions, misuse of
+               patterns, or solutions that solve the wrong problem.
 
-      - name: Submit GitHub review
-        if: always() && steps.claude.outputs.structured_output != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          OUTPUT='${{ steps.claude.outputs.structured_output }}'
-          VERDICT=$(echo "$OUTPUT" | jq -r '.verdict')
-          SUMMARY=$(echo "$OUTPUT" | jq -r '.summary')
+            3. **Check consistency**: Does this change fit the style, patterns, and conventions
+               of the rest of the codebase? Look at surrounding code for context.
 
-          case "$VERDICT" in
-            APPROVE)
-              gh pr review ${{ github.event.pull_request.number }} --approve --body "$SUMMARY"
-              ;;
-            REQUEST_CHANGES)
-              gh pr review ${{ github.event.pull_request.number }} --request-changes --body "$SUMMARY"
-              ;;
-            *)
-              gh pr review ${{ github.event.pull_request.number }} --comment --body "$SUMMARY"
-              ;;
-          esac
+            4. **Check for appropriate testing**: Does the change include tests where it makes
+               sense? If logic was added or changed, are there tests covering it?
+
+            5. **General quality**: Bugs, security issues, missing error handling at system
+               boundaries, and resource misconfigurations (especially in Kubernetes manifests).
+
+            Post inline comments on specific lines using mcp__github_inline_comment__create_inline_comment.
+
+            Then submit a formal GitHub review using gh pr review:
+            - If the PR looks good: `gh pr review <PR_NUMBER> --repo <REPO> --approve --body "<summary>"`
+            - If there are blocking issues: `gh pr review <PR_NUMBER> --repo <REPO> --request-changes --body "<summary>"`
+            - If suggestions only: `gh pr review <PR_NUMBER> --repo <REPO> --comment --body "<summary>"`
