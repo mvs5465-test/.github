@@ -44,7 +44,7 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          model: gpt-5.1-codex-mini
+          model: gpt-5.2-codex
           effort: low
           sandbox: read-only
           prompt: |
