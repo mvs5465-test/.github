@@ -7,7 +7,6 @@ Use this baseline for every repository in `mvs5465-test`.
 - Require pull requests before merging to `main`
 - Require status checks:
   - `codex_review / review`
-  - `review / review`
   - `commitlint / commitlint`
 - Require branches to be up to date before merging (`strict: true`)
 - Allow only squash merges
@@ -25,7 +24,6 @@ Use this baseline for every repository in `mvs5465-test`.
   - `mvs5465-test/.github/.github/workflows/commitlint.yml@main`
 - Callers are configured so required checks appear as:
   - `codex_review / review`
-  - `review / review`
   - `commitlint / commitlint`
 
 ## Security and quality defaults
