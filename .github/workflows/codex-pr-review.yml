@@ -39,9 +39,20 @@ jobs:
             ${{ github.event.pull_request.base.ref }} \
             +refs/pull/${{ github.event.pull_request.number }}/head
 
+      - name: Resolve effective reviewer
+        id: resolve-reviewer
+        run: |
+          requested="${{ inputs.reviewer }}"
+          if [ "$requested" = "claude" ] && [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            echo "ANTHROPIC_API_KEY not set; falling back to codex reviewer" >&2
+            echo "reviewer=codex" >> $GITHUB_OUTPUT
+          else
+            echo "reviewer=${requested:-claude}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run Claude Review
         id: claude
-        if: ${{ inputs.reviewer == 'claude' }}
+        if: ${{ steps.resolve-reviewer.outputs.reviewer == 'claude' }}
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -73,7 +84,7 @@ jobs:
 
       - name: Extract Claude output
         id: claude-output
-        if: ${{ inputs.reviewer == 'claude' }}
+        if: ${{ steps.resolve-reviewer.outputs.reviewer == 'claude' }}
         run: |
           exec_file="${{ steps.claude.outputs.execution_file }}"
           message=$(jq -r '[.[] | select(.type=="assistant") | .message.content[] | select(.type=="text") | .text] | last' "$exec_file")
@@ -83,7 +94,7 @@ jobs:
 
       - name: Run Codex PR Review
         id: codex
-        if: ${{ inputs.reviewer == 'codex' }}
+        if: ${{ steps.resolve-reviewer.outputs.reviewer == 'codex' }}
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -119,7 +130,7 @@ jobs:
         run: |
           raw_file="$(mktemp)"
 
-          if [ "${{ inputs.reviewer }}" = "codex" ]; then
+          if [ "${{ steps.resolve-reviewer.outputs.reviewer }}" = "codex" ]; then
             MESSAGE="${{ steps.codex.outputs.final-message }}"
           else
             MESSAGE="${{ steps.claude-output.outputs.message }}"
@@ -159,7 +170,7 @@ jobs:
             fi
           fi
 
-          reviewer_label="${{ inputs.reviewer }}"
+          reviewer_label="${{ steps.resolve-reviewer.outputs.reviewer }}"
           if [ -z "${reviewer_label}" ]; then
             reviewer_label="claude"
           fi
