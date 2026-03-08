@@ -1,0 +1,63 @@
+name: Submit Review (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: 'Pull request number to review'
+        type: number
+        required: true
+      verdict:
+        description: 'Review verdict: approve or request-changes'
+        type: string
+        required: true
+      detail:
+        description: 'Review body text (markdown supported)'
+        type: string
+        required: true
+    secrets:
+      REVIEWER_APP_ID:
+        required: true
+      REVIEWER_PRIVATE_KEY:
+        required: true
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Validate verdict input
+        run: |
+          verdict="${{ inputs.verdict }}"
+          if [ "${verdict}" != "approve" ] && [ "${verdict}" != "request-changes" ]; then
+            echo "Error: verdict must be 'approve' or 'request-changes', got '${verdict}'"
+            exit 1
+          fi
+
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.REVIEWER_APP_ID }}
+          private-key: ${{ secrets.REVIEWER_PRIVATE_KEY }}
+
+      - name: Submit review
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          verdict="${{ inputs.verdict }}"
+          body="${{ inputs.detail }}"
+
+          if [ "${verdict}" = "approve" ]; then
+            gh pr review "${{ inputs.pr_number }}" \
+              --repo "${{ github.repository }}" \
+              --approve \
+              --body "${body}"
+          else
+            gh pr review "${{ inputs.pr_number }}" \
+              --repo "${{ github.repository }}" \
+              --request-changes \
+              --body "${body}"
+          fi
