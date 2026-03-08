@@ -27,6 +27,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,9 +45,6 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          claude_env: |
-            BASE_SHA=${{ github.event.pull_request.base.sha }}
-            HEAD_SHA=${{ github.event.pull_request.head.sha }}
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
@@ -56,8 +54,8 @@ jobs:
             Review only the files changed in this pull request.
             Use git history diff between BASE SHA and HEAD SHA (not working tree diff).
             Use these commands:
-            - `git diff --name-only $BASE_SHA...$HEAD_SHA`
-            - `git diff --unified=0 $BASE_SHA...$HEAD_SHA`
+            - `git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}`
+            - `git diff --unified=0 ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}`
 
             Flag only high-confidence medium+ severity issues: bugs, security, data loss, broken behavior, missing required tests.
             Ignore style, nits, and low-impact suggestions.
