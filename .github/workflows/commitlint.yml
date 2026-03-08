@@ -1,50 +1,15 @@
-name: Commitlint (Reusable)
+name: Commitlint
 
 on:
-  workflow_call:
-    inputs:
-      base_sha:
-        required: true
-        type: string
-      head_sha:
-        required: true
-        type: string
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
 
 jobs:
   commitlint:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
-        with:
-          node-version: 22
-
-      - name: Install commitlint
-        run: npm install --no-save --save-exact @commitlint/cli@19.8.0 @commitlint/config-conventional@19.8.0
-
-      - name: Write baseline commitlint config
-        run: |
-          cat > commitlint.config.cjs <<'EOF'
-          module.exports = {
-            extends: ['@commitlint/config-conventional'],
-            rules: {
-              'header-max-length': [2, 'always', 100],
-            },
-          };
-          EOF
-
-      - name: Lint commit messages
-        env:
-          BASE_SHA: ${{ inputs.base_sha }}
-          HEAD_SHA: ${{ inputs.head_sha }}
-        run: |
-          npx commitlint \
-            --config commitlint.config.cjs \
-            --from "$BASE_SHA" \
-            --to "$HEAD_SHA" \
-            --verbose
+    uses: mvs5465-test/.github/.github/workflows/commitlint.yml@main
+    with:
+      base_sha: ${{ github.event.pull_request.base.sha }}
+      head_sha: ${{ github.event.pull_request.head.sha }}
