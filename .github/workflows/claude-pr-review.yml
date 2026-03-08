@@ -76,9 +76,6 @@ jobs:
                medium severity or higher. Do not comment on low-severity or purely stylistic
                nits.
 
-            8. **Explain why**: For each finding and in the final summary, explicitly state
-               why the issue matters (risk, impact, or likely failure mode), not just what changed.
-
             Post inline comments on specific lines using mcp__github_inline_comment__create_inline_comment.
 
             Write a concise Markdown summary to `review.md`, then post it by running:
