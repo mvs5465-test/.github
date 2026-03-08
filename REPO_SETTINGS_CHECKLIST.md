@@ -13,7 +13,6 @@ Use this baseline for every repository in `mvs5465-test`.
 - Allow auto-merge
 - Automatically delete head branches on merge (`delete_branch_on_merge: true`)
 - Always suggest updating pull request branches (`allow_update_branch: true`)
-- Pull request creation policy set to `collaborators_only`
 
 ## Workflow standardization
 
