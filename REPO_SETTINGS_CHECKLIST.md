@@ -13,7 +13,8 @@ Use this baseline for every repository in `mvs5465-test`.
 - Allow auto-merge
 - Automatically delete head branches on merge (`delete_branch_on_merge: true`)
 - Always suggest updating pull request branches (`allow_update_branch: true`)
-- Security policy (mandatory, do not modify): PR creation must be restricted to collaborators only (`pull_request_creation_policy: collaborators_only`)
+- Security policy (mandatory, do not modify): repository pull request creation policy must be set via API to collaborators only (`pull_request_creation_policy: collaborators_only`).
+- Verification command: `gh api repos/<org>/<repo> --jq '.pull_request_creation_policy'` should return `collaborators_only`.
 
 ## Workflow standardization
 
