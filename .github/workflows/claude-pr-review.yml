@@ -65,3 +65,7 @@ jobs:
             - If the PR looks good: `gh pr review <PR_NUMBER> --repo <REPO> --approve --body "<summary>"`
             - If there are blocking issues: `gh pr review <PR_NUMBER> --repo <REPO> --request-changes --body "<summary>"`
             - If suggestions only: `gh pr review <PR_NUMBER> --repo <REPO> --comment --body "<summary>"`
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true

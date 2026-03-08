@@ -48,3 +48,7 @@ jobs:
             --from "$BASE_SHA" \
             --to "$HEAD_SHA" \
             --verbose
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
