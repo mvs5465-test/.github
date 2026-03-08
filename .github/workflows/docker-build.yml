@@ -73,7 +73,7 @@ jobs:
         with:
           images: ${{ inputs.registry }}/${{ inputs.image_name != '' && inputs.image_name || github.repository }}
           tags: |
-            type=raw,value=latest
+            type=ref,event=branch
             type=sha,prefix=sha-
 
       - name: Build image
