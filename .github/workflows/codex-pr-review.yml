@@ -22,12 +22,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Pre-fetch base and head refs for PR context
-        run: |
-          git fetch --no-tags origin \
-            ${{ github.event.pull_request.base.ref }} \
-            +refs/pull/${{ github.event.pull_request.number }}/head
-
       - name: Create sticky review posting script
         run: |
           cat > post-review.sh <<'EOF'
@@ -50,19 +44,13 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: gpt-5.1-codex-mini
           effort: low
-          sandbox: workspace-write
+          sandbox: read-only
           prompt: |
-            REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
-            BASE SHA: ${{ github.event.pull_request.base.sha }}
-            HEAD SHA: ${{ github.event.pull_request.head.sha }}
-
-            Perform a pull request review with low token usage.
-            Review only files changed between BASE SHA and HEAD SHA.
-            Focus only on high-confidence medium+ severity issues:
-            bugs, security, data loss, broken behavior, and missing required tests.
-            Ignore style nits and low-impact suggestions.
+            Review only the files changed in this pull request.
+            Flag only high-confidence medium+ severity issues: bugs, security, data loss, broken behavior, missing required tests.
+            Ignore style, nits, and low-impact suggestions.
 
             Output must be valid Markdown and must start with one line exactly:
             REVIEW_DECISION: APPROVE
