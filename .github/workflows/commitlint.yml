@@ -30,12 +30,12 @@ jobs:
       - name: Write baseline commitlint config
         run: |
           cat > commitlint.config.cjs <<'EOF'
-module.exports = {
-  extends: ['@commitlint/config-conventional'],
-  rules: {
-    'header-max-length': [2, 'always', 100],
-  },
-};
+          module.exports = {
+            extends: ['@commitlint/config-conventional'],
+            rules: {
+              'header-max-length': [2, 'always', 100],
+            },
+          };
           EOF
 
       - name: Lint commit messages
