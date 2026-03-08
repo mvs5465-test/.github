@@ -16,8 +16,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      issues: write
-      statuses: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,23 +26,6 @@ jobs:
           git fetch --no-tags origin \
             ${{ github.event.pull_request.base.ref }} \
             +refs/pull/${{ github.event.pull_request.number }}/head
-
-      - name: Create sticky review posting script
-        run: |
-          cat > post-review.sh <<'EOF'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          if [ $# -ne 1 ]; then
-            echo "Usage: post-review.sh <review-file>"
-            exit 1
-          fi
-          gh pr comment "${{ github.event.pull_request.number }}" \
-            --repo "${{ github.repository }}" \
-            --body-file "$1" \
-            --edit-last \
-            --create-if-none
-          EOF
-          chmod +x post-review.sh
 
       - name: Run Codex PR Review
         id: codex
@@ -69,58 +50,74 @@ jobs:
             Flag only high-confidence medium+ severity issues: bugs, security, data loss, broken behavior, missing required tests.
             Ignore style, nits, and low-impact suggestions.
 
-            Output must be valid Markdown and must start with one line exactly:
-            REVIEW_DECISION: APPROVE
-            or
-            REVIEW_DECISION: REQUEST_CHANGES
-            or
-            REVIEW_DECISION: COMMENT
+            Output must be valid Markdown in exactly this format:
+            RESULT: PASS | FAIL
+            SUMMARY: <concise reason>
+            DETAILS: <specific changes requested>
 
-            After that line, provide:
-            - At most 8 bullets and no more than 140 words total.
-            - If no medium+ findings, write exactly: No medium+ findings.
+            Rules:
+            - Use RESULT: PASS only when the PR is ready to merge.
+            - If uncertain or missing context, use RESULT: FAIL.
+            - DETAILS should be actionable and specific to changed code.
 
       - name: Prepare review body
         run: |
-          if [ -n "${{ steps.codex.outputs.final-message }}" ]; then
-            printf "%s\n" "${{ steps.codex.outputs.final-message }}" > review.md
-          else
-            {
-              echo "REVIEW_DECISION: COMMENT"
-              echo
-              echo "No medium+ findings."
-            } > review.md
+          raw_file="$(mktemp)"
+          printf "%s\n" "${{ steps.codex.outputs.final-message }}" > "${raw_file}"
+
+          result="$(grep -E '^RESULT:' "${raw_file}" | head -n1 | sed -E 's/^RESULT:[[:space:]]*//' | tr '[:lower:]' '[:upper:]')"
+          summary="$(grep -E '^SUMMARY:' "${raw_file}" | head -n1 | sed -E 's/^SUMMARY:[[:space:]]*//')"
+          details="$(awk '
+            /^DETAILS:/ {
+              sub(/^DETAILS:[[:space:]]*/, "", $0)
+              print
+              in_details=1
+              next
+            }
+            in_details { print }
+          ' "${raw_file}")"
+
+          if [ "${result}" != "PASS" ] && [ "${result}" != "FAIL" ]; then
+            result="FAIL"
           fi
 
-      - name: Post sticky review summary
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: ./post-review.sh review.md
+          if [ -z "${summary}" ]; then
+            if [ "${result}" = "PASS" ]; then
+              summary="No blocking issues identified."
+            else
+              summary="Defaulting to FAIL because the review output was incomplete or ambiguous."
+            fi
+          fi
 
-      - name: Set commit status
+          if [ -z "${details}" ]; then
+            if [ "${result}" = "PASS" ]; then
+              details="No changes requested."
+            else
+              details="Please review the changed files again and provide explicit PASS/FAIL output with concrete requested changes."
+            fi
+          fi
+
+          {
+            echo "RESULT: ${result}"
+            echo "SUMMARY: ${summary}"
+            echo "DETAILS: ${details}"
+          } > review.md
+
+      - name: Submit formal review
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          decision="$(grep -E '^REVIEW_DECISION:' review.md | head -n1 | awk '{print $2}')"
+          result="$(grep -E '^RESULT:' review.md | head -n1 | sed -E 's/^RESULT:[[:space:]]*//' | tr '[:lower:]' '[:upper:]')"
+          body="$(cat review.md)"
 
-          case "$decision" in
-            APPROVE)
-              state="success"
-              description="No medium+ findings."
-              ;;
-            REQUEST_CHANGES)
-              state="failure"
-              description="Codex requested changes — see PR comment."
-              ;;
-            *)
-              state="success"
-              description="Review complete — see PR comment."
-              ;;
-          esac
-
-          gh api \
-            --method POST \
-            "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
-            -f state="$state" \
-            -f description="$description" \
-            -f context="codex-review"
+          if [ "${result}" = "PASS" ]; then
+            gh pr review "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" \
+              --approve \
+              --body "${body}"
+          else
+            gh pr review "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" \
+              --request-changes \
+              --body "${body}"
+          fi
