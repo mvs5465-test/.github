@@ -1,0 +1,119 @@
+name: Codex PR Review (Reusable)
+
+on:
+  workflow_call:
+    secrets:
+      OPENAI_API_KEY:
+        required: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pre-fetch base and head refs for PR context
+        run: |
+          git fetch --no-tags origin \
+            ${{ github.event.pull_request.base.ref }} \
+            +refs/pull/${{ github.event.pull_request.number }}/head
+
+      - name: Create sticky review posting script
+        run: |
+          cat > post-review.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if [ $# -ne 1 ]; then
+            echo "Usage: post-review.sh <review-file>"
+            exit 1
+          fi
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --body-file "$1" \
+            --edit-last \
+            --create-if-none
+          EOF
+          chmod +x post-review.sh
+
+      - name: Run Codex PR Review
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          effort: low
+          sandbox: workspace-write
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            BASE SHA: ${{ github.event.pull_request.base.sha }}
+            HEAD SHA: ${{ github.event.pull_request.head.sha }}
+
+            Perform a pull request review with low token usage.
+            Review only files changed between BASE SHA and HEAD SHA.
+            Focus only on high-confidence medium+ severity issues:
+            bugs, security, data loss, broken behavior, and missing required tests.
+            Ignore style nits and low-impact suggestions.
+
+            Output must be valid Markdown and must start with one line exactly:
+            REVIEW_DECISION: APPROVE
+            or
+            REVIEW_DECISION: REQUEST_CHANGES
+            or
+            REVIEW_DECISION: COMMENT
+
+            After that line, provide:
+            - At most 8 bullets and no more than 140 words total.
+            - If no medium+ findings, write exactly: No medium+ findings.
+
+      - name: Prepare review body
+        run: |
+          if [ -n "${{ steps.codex.outputs.final-message }}" ]; then
+            printf "%s\n" "${{ steps.codex.outputs.final-message }}" > review.md
+          else
+            {
+              echo "REVIEW_DECISION: COMMENT"
+              echo
+              echo "No medium+ findings."
+            } > review.md
+          fi
+
+      - name: Post sticky review summary
+        run: ./post-review.sh review.md
+
+      - name: Submit formal review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          decision="$(grep -E '^REVIEW_DECISION:' review.md | head -n1 | awk '{print $2}')"
+          body="$(cat review.md)"
+
+          case "$decision" in
+            APPROVE)
+              gh pr review "${{ github.event.pull_request.number }}" \
+                --repo "${{ github.repository }}" \
+                --approve \
+                --body "$body"
+              ;;
+            REQUEST_CHANGES)
+              gh pr review "${{ github.event.pull_request.number }}" \
+                --repo "${{ github.repository }}" \
+                --request-changes \
+                --body "$body"
+              ;;
+            *)
+              gh pr review "${{ github.event.pull_request.number }}" \
+                --repo "${{ github.repository }}" \
+                --comment \
+                --body "$body"
+              ;;
+          esac
