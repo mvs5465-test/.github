@@ -88,6 +88,8 @@ jobs:
           fi
 
       - name: Post sticky review summary
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: ./post-review.sh review.md
 
       - name: Submit formal review
