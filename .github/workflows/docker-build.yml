@@ -3,10 +3,6 @@ name: Docker Build (Reusable)
 on:
   workflow_call:
     inputs:
-      image_name:
-        description: 'Image name without registry prefix (example: owner/repo)'
-        type: string
-        required: true
       context:
         description: 'Docker build context path'
         type: string
@@ -27,11 +23,6 @@ on:
         type: boolean
         required: false
         default: false
-      tags:
-        description: 'Optional newline-separated tags override'
-        type: string
-        required: false
-        default: ''
       registry:
         description: 'Container registry host'
         type: string
@@ -51,6 +42,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+      cancel-in-progress: true
     outputs:
       digest: ${{ steps.build.outputs.digest }}
       tags: ${{ steps.meta.outputs.tags }}
@@ -72,8 +66,10 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ inputs.registry }}/${{ inputs.image_name }}
-          tags: ${{ inputs.tags != '' && inputs.tags || format('type=ref,event=branch\ntype=sha,prefix={0}-', github.ref_name) }}
+          images: ${{ inputs.registry }}/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
 
       - name: Build image
         id: build
@@ -83,7 +79,6 @@ jobs:
           file: ${{ inputs.dockerfile }}
           push: ${{ github.ref == 'refs/heads/main' || inputs.push }}
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ inputs.platforms }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
