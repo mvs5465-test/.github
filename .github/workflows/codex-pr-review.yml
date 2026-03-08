@@ -1,10 +1,17 @@
-name: Codex PR Review (Reusable)
+name: PR Review (Reusable)
 
 on:
   workflow_call:
+    inputs:
+      reviewer:
+        description: 'Which AI reviewer to use: claude or codex'
+        type: string
+        default: 'claude'
     secrets:
       OPENAI_API_KEY:
-        required: true
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
       REVIEWER_APP_ID:
         required: true
       REVIEWER_PRIVATE_KEY:
@@ -31,8 +38,54 @@ jobs:
             ${{ github.event.pull_request.base.ref }} \
             +refs/pull/${{ github.event.pull_request.number }}/head
 
+      - name: Run Claude Review
+        id: claude
+        if: ${{ inputs.reviewer == 'claude' }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_env: |
+            BASE_SHA=${{ github.event.pull_request.base.sha }}
+            HEAD_SHA=${{ github.event.pull_request.head.sha }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            BASE SHA: ${{ github.event.pull_request.base.sha }}
+            HEAD SHA: ${{ github.event.pull_request.head.sha }}
+
+            Review only the files changed in this pull request.
+            Use git history diff between BASE SHA and HEAD SHA (not working tree diff).
+            Use these commands:
+            - `git diff --name-only $BASE_SHA...$HEAD_SHA`
+            - `git diff --unified=0 $BASE_SHA...$HEAD_SHA`
+
+            Flag only high-confidence medium+ severity issues: bugs, security, data loss, broken behavior, missing required tests.
+            Ignore style, nits, and low-impact suggestions.
+
+            Output must be valid Markdown in exactly this format:
+            RESULT: PASS | FAIL
+            SUMMARY: <concise reason>
+            DETAILS: <specific changes requested>
+
+            Rules:
+            - Use RESULT: PASS only when the PR is ready to merge.
+            - If uncertain or missing context, use RESULT: FAIL.
+            - DETAILS should be actionable and specific to changed code.
+          claude_args: "--max-turns 3"
+
+      - name: Extract Claude output
+        id: claude-output
+        if: ${{ inputs.reviewer == 'claude' }}
+        run: |
+          exec_file="${{ steps.claude.outputs.execution_file }}"
+          message=$(jq -r '[.[] | select(.type=="assistant") | .message.content[] | select(.type=="text") | .text] | last' "$exec_file")
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$message" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Run Codex PR Review
         id: codex
+        if: ${{ inputs.reviewer == 'codex' }}
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -67,7 +120,14 @@ jobs:
       - name: Prepare review body
         run: |
           raw_file="$(mktemp)"
-          printf "%s\n" "${{ steps.codex.outputs.final-message }}" > "${raw_file}"
+
+          if [ "${{ inputs.reviewer }}" = "codex" ]; then
+            MESSAGE="${{ steps.codex.outputs.final-message }}"
+          else
+            MESSAGE="${{ steps.claude-output.outputs.message }}"
+          fi
+
+          printf "%s\n" "$MESSAGE" > "${raw_file}"
 
           result="$(grep -E '^RESULT:' "${raw_file}" | head -n1 | sed -E 's/^RESULT:[[:space:]]*//' | tr '[:lower:]' '[:upper:]')"
           summary="$(grep -E '^SUMMARY:' "${raw_file}" | head -n1 | sed -E 's/^SUMMARY:[[:space:]]*//')"
@@ -101,9 +161,14 @@ jobs:
             fi
           fi
 
+          reviewer_label="${{ inputs.reviewer }}"
+          if [ -z "${reviewer_label}" ]; then
+            reviewer_label="claude"
+          fi
+
           {
             echo "RESULT: ${result}"
-            echo "SUMMARY: ${summary}"
+            echo "SUMMARY: ${summary} [reviewed by ${reviewer_label}]"
             echo "DETAILS: ${details}"
           } > review.md
 
