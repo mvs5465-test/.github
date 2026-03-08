@@ -3,6 +3,11 @@ name: Docker Build (Reusable)
 on:
   workflow_call:
     inputs:
+      image_name:
+        description: 'Image name without registry prefix (example: owner/repo)'
+        type: string
+        required: false
+        default: ''
       context:
         description: 'Docker build context path'
         type: string
@@ -66,7 +71,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ inputs.registry }}/${{ github.repository }}
+          images: ${{ inputs.registry }}/${{ inputs.image_name != '' && inputs.image_name || github.repository }}
           tags: |
             type=raw,value=latest
             type=sha,prefix=sha-
