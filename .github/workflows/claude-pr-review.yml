@@ -1,0 +1,64 @@
+name: Claude PR Review (Reusable)
+
+on:
+  workflow_call:
+    secrets:
+      anthropic_api_key:
+        required: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude PR Review
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.anthropic_api_key }}
+          claude_args: |
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["APPROVE","REQUEST_CHANGES","COMMENT"]},"summary":{"type":"string"}},"required":["verdict","summary"]}'
+          prompt: |
+            Review this pull request thoroughly. Look for:
+            - Bugs or logic errors
+            - Security issues
+            - Missing error handling at system boundaries
+            - Resource misconfigurations (especially for Kubernetes manifests)
+            - Code style issues or unnecessary complexity
+
+            Post inline comments on specific lines where you find issues.
+
+            Then output a JSON verdict:
+            - "APPROVE" if the PR looks good to merge
+            - "REQUEST_CHANGES" if there are issues that must be fixed
+            - "COMMENT" if you have suggestions but nothing blocking
+
+            Include a brief summary of your findings.
+
+      - name: Submit GitHub review
+        if: always() && steps.claude.outputs.structured_output != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OUTPUT='${{ steps.claude.outputs.structured_output }}'
+          VERDICT=$(echo "$OUTPUT" | jq -r '.verdict')
+          SUMMARY=$(echo "$OUTPUT" | jq -r '.summary')
+
+          case "$VERDICT" in
+            APPROVE)
+              gh pr review ${{ github.event.pull_request.number }} --approve --body "$SUMMARY"
+              ;;
+            REQUEST_CHANGES)
+              gh pr review ${{ github.event.pull_request.number }} --request-changes --body "$SUMMARY"
+              ;;
+            *)
+              gh pr review ${{ github.event.pull_request.number }} --comment --body "$SUMMARY"
+              ;;
+          esac
