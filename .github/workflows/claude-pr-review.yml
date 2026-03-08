@@ -46,44 +46,30 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: >-
-            --model claude-sonnet-4-6
+            --model claude-3-5-haiku-latest
+            --max-turns 4
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr review:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*),Bash(./post-review.sh:*),Write(review*.md),Read(review*.md),Edit(review*.md)"
           use_sticky_comment: "true"
+          include_fix_links: "false"
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
-            Review this pull request using the following process:
+            Review this pull request quickly and with low token usage.
 
-            1. **Map the context**: Start by understanding what this PR is trying to accomplish.
-               Read the title, description, and changed files to build a clear picture of the
-               intent before evaluating anything.
-
-            2. **Check for code smells**: Does anything feel unconventional or designed in an
-               unproductive way? Look for over-engineering, awkward abstractions, misuse of
-               patterns, or solutions that solve the wrong problem.
-
-            3. **Check consistency**: Does this change fit the style, patterns, and conventions
-               of the rest of the codebase? Look at surrounding code for context.
-
-            4. **Check for appropriate testing**: Does the change include tests where it makes
-               sense? If logic was added or changed, are there tests covering it?
-
-            5. **General quality**: Bugs, security issues, missing error handling at system
-               boundaries, and resource misconfigurations (especially in Kubernetes manifests).
-
-            6. **Resolve addressed review threads**: Find unresolved review threads previously
-               created by Claude on this PR. If the code now addresses the finding in a thread,
-               resolve that thread.
-
-            7. **Severity threshold**: Only create review comments for findings that are
-               medium severity or higher. Do not comment on low-severity or purely stylistic
-               nits.
+            Priorities:
+            1. Focus only on changed lines/files in this PR.
+            2. Flag only high-confidence, medium+ severity issues:
+               bugs, security, data loss, broken behavior, missing required tests.
+            3. Ignore style nits and low-impact suggestions.
+            4. Keep analysis concise and avoid broad codebase exploration unless required.
+            5. Resolve previously-open Claude threads only when the fix is clearly present.
 
             Post inline comments on specific lines using mcp__github_inline_comment__create_inline_comment.
 
-            Write a concise Markdown summary to `review.md`, then post it by running:
+            Write a short Markdown summary to `review.md` (max 8 bullets, max 120 words), then post it by running:
             `./post-review.sh review.md`
+            If there are no medium+ findings, write exactly: `No medium+ findings.`
             This is required so each run updates one existing summary comment instead of adding a new one.
 
             Then submit a formal GitHub review using gh pr review:
