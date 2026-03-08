@@ -27,6 +27,5 @@ Use this baseline for every repository in `mvs5465-test`.
 
 ## Security and quality defaults
 
-- Dependabot alerts enabled
 - Secret scanning enabled
 - Default branch set to `main`
