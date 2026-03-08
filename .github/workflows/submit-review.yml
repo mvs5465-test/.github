@@ -5,7 +5,7 @@ on:
     inputs:
       pr_number:
         description: 'Pull request number to review'
-        type: number
+        type: string
         required: true
       verdict:
         description: 'Review verdict: approve or request-changes'
