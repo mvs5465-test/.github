@@ -29,10 +29,11 @@ jobs:
       pull-requests: write
     steps:
       - name: Validate verdict input
+        env:
+          VERDICT: ${{ inputs.verdict }}
         run: |
-          verdict="${{ inputs.verdict }}"
-          if [ "${verdict}" != "approve" ] && [ "${verdict}" != "request-changes" ]; then
-            echo "Error: verdict must be 'approve' or 'request-changes', got '${verdict}'"
+          if [ "${VERDICT}" != "approve" ] && [ "${VERDICT}" != "request-changes" ]; then
+            echo "Error: verdict must be 'approve' or 'request-changes', got '${VERDICT}'"
             exit 1
           fi
 
@@ -43,21 +44,26 @@ jobs:
           app-id: ${{ secrets.REVIEWER_APP_ID }}
           private-key: ${{ secrets.REVIEWER_PRIVATE_KEY }}
 
+      - name: Write review body to file
+        env:
+          DETAIL: ${{ inputs.detail }}
+        run: printf '%s' "${DETAIL}" > review-body.txt
+
       - name: Submit review
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERDICT: ${{ inputs.verdict }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          REPO: ${{ github.repository }}
         run: |
-          verdict="${{ inputs.verdict }}"
-          body="${{ inputs.detail }}"
-
-          if [ "${verdict}" = "approve" ]; then
-            gh pr review "${{ inputs.pr_number }}" \
-              --repo "${{ github.repository }}" \
+          if [ "${VERDICT}" = "approve" ]; then
+            gh pr review "${PR_NUMBER}" \
+              --repo "${REPO}" \
               --approve \
-              --body "${body}"
+              --body-file review-body.txt
           else
-            gh pr review "${{ inputs.pr_number }}" \
-              --repo "${{ github.repository }}" \
+            gh pr review "${PR_NUMBER}" \
+              --repo "${REPO}" \
               --request-changes \
-              --body "${body}"
+              --body-file review-body.txt
           fi
