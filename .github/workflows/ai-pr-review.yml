@@ -41,9 +41,11 @@ jobs:
 
       - name: Resolve effective reviewer
         id: resolve-reviewer
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           requested="${{ inputs.reviewer }}"
-          if [ "$requested" = "claude" ] && [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+          if [ "$requested" = "claude" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
             echo "ANTHROPIC_API_KEY not set; falling back to codex reviewer" >&2
             echo "reviewer=codex" >> $GITHUB_OUTPUT
           else
