@@ -99,6 +99,7 @@ jobs:
                 --repo "${{ github.repository }}" \
                 --request-changes \
                 --body "$body"
+              exit 1
               ;;
             *)
               gh pr review "${{ github.event.pull_request.number }}" \
