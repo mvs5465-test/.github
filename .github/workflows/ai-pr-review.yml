@@ -73,7 +73,7 @@ jobs:
 
       - name: Extract Claude output
         id: claude-output
-        if: ${{ inputs.reviewer == 'claude' }}
+        if: ${{ inputs.reviewer == 'claude' && steps.claude.outputs.execution_file != '' }}
         run: |
           exec_file="${{ steps.claude.outputs.execution_file }}"
           message=$(jq -r '[.[] | select(.type=="assistant") | .message.content[] | select(.type=="text") | .text] | last' "$exec_file")
