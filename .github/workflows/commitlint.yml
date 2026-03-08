@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,9 +23,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install commitlint
-        run: npm install --no-save @commitlint/cli @commitlint/config-conventional
+        run: npm install --no-save @commitlint/cli@19 @commitlint/config-conventional@19
 
       - name: Write baseline commitlint config
         run: |
@@ -40,9 +40,12 @@ jobs:
           EOF
 
       - name: Lint commit messages
+        env:
+          BASE_SHA: ${{ inputs.base_sha }}
+          HEAD_SHA: ${{ inputs.head_sha }}
         run: |
           npx commitlint \
             --config commitlint.config.cjs \
-            --from "${{ inputs.base_sha }}" \
-            --to "${{ inputs.head_sha }}" \
+            --from "$BASE_SHA" \
+            --to "$HEAD_SHA" \
             --verbose
