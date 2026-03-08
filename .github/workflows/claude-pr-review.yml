@@ -24,7 +24,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.anthropic_api_key }}
           claude_args: |
-            --model claude-haiku-4-5-20251001 --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["APPROVE","REQUEST_CHANGES","COMMENT"]},"summary":{"type":"string"}},"required":["verdict","summary"]}'
+            --model claude-sonnet-4-6 --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["APPROVE","REQUEST_CHANGES","COMMENT"]},"summary":{"type":"string"}},"required":["verdict","summary"]}'
           prompt: |
             Review this pull request thoroughly. Look for:
             - Bugs or logic errors
