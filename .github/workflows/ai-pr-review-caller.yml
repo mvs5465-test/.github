@@ -1,14 +1,14 @@
-name: Codex PR Review
+name: AI PR Review
 
 on:
   pull_request:
     types: [opened, synchronize]
 
 jobs:
-  codex_review:
+  ai_review:
     permissions:
       contents: read
       pull-requests: write
       issues: write
-    uses: ./.github/workflows/codex-pr-review.yml
+    uses: ./.github/workflows/ai-pr-review.yml
     secrets: inherit
