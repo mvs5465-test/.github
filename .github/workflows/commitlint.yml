@@ -1,0 +1,48 @@
+name: Commitlint (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      base_sha:
+        required: true
+        type: string
+      head_sha:
+        required: true
+        type: string
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install commitlint
+        run: npm install --no-save @commitlint/cli @commitlint/config-conventional
+
+      - name: Write baseline commitlint config
+        run: |
+          cat > /tmp/commitlint.config.cjs <<'EOF'
+          module.exports = {
+            extends: ['@commitlint/config-conventional'],
+            rules: {
+              'header-max-length': [2, 'always', 100],
+            },
+          };
+          EOF
+
+      - name: Lint commit messages
+        run: |
+          npx commitlint \
+            --config /tmp/commitlint.config.cjs \
+            --from "${{ inputs.base_sha }}" \
+            --to "${{ inputs.head_sha }}" \
+            --verbose
