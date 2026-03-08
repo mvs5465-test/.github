@@ -11,5 +11,10 @@ permissions:
 jobs:
   review:
     uses: mvs5465-test/.github/.github/workflows/claude-pr-review.yml@main
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
     secrets:
       anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
