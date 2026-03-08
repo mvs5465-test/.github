@@ -26,12 +26,27 @@ jobs:
           claude_args: |
             --model claude-sonnet-4-6 --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["APPROVE","REQUEST_CHANGES","COMMENT"]},"summary":{"type":"string"}},"required":["verdict","summary"]}'
           prompt: |
-            Review this pull request thoroughly. Look for:
-            - Bugs or logic errors
-            - Security issues
-            - Missing error handling at system boundaries
-            - Resource misconfigurations (especially for Kubernetes manifests)
-            - Code style issues or unnecessary complexity
+            Review this pull request using the following process:
+
+            1. **Map the context**: Start by understanding what this PR is trying to accomplish.
+               Read the title, description, and changed files to build a clear picture of the intent
+               before evaluating anything.
+
+            2. **Check for code smells**: Does anything feel unconventional or designed in an
+               unproductive way? Look for over-engineering, awkward abstractions, misuse of
+               patterns, or solutions that solve the wrong problem. Flag anything that seems
+               like it will cause pain later.
+
+            3. **Check consistency**: Does this change fit the style, patterns, and conventions
+               of the rest of the codebase? Look at surrounding code for context. Inconsistency
+               in naming, structure, error handling, or approach is worth calling out.
+
+            4. **Check for appropriate testing**: Does the change include tests where it makes
+               sense? If logic was added or changed, are there tests covering it? If tests are
+               missing, is there a good reason, or is it an oversight?
+
+            5. **General quality**: Bugs, security issues, missing error handling at system
+               boundaries, and resource misconfigurations (especially in Kubernetes manifests).
 
             Post inline comments on specific lines where you find issues.
 
