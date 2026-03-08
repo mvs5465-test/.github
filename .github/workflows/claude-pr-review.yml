@@ -55,6 +55,10 @@ jobs:
                created by Claude on this PR. If the code now addresses the finding in a thread,
                resolve that thread.
 
+            7. **Severity threshold**: Only create review comments for findings that are
+               medium severity or higher. Do not comment on low-severity or purely stylistic
+               nits.
+
             Post inline comments on specific lines using mcp__github_inline_comment__create_inline_comment.
 
             Then submit a formal GitHub review using gh pr review:
