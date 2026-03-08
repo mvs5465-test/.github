@@ -17,6 +17,7 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+      statuses: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -80,31 +81,30 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: ./post-review.sh review.md
 
-      - name: Submit formal review
+      - name: Set commit status
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           decision="$(grep -E '^REVIEW_DECISION:' review.md | head -n1 | awk '{print $2}')"
-          body="$(cat review.md)"
 
           case "$decision" in
             APPROVE)
-              gh pr review "${{ github.event.pull_request.number }}" \
-                --repo "${{ github.repository }}" \
-                --approve \
-                --body "$body"
+              state="success"
+              description="No medium+ findings."
               ;;
             REQUEST_CHANGES)
-              gh pr review "${{ github.event.pull_request.number }}" \
-                --repo "${{ github.repository }}" \
-                --request-changes \
-                --body "$body"
-              exit 1
+              state="failure"
+              description="Codex requested changes — see PR comment."
               ;;
             *)
-              gh pr review "${{ github.event.pull_request.number }}" \
-                --repo "${{ github.repository }}" \
-                --comment \
-                --body "$body"
+              state="success"
+              description="Review complete — see PR comment."
               ;;
           esac
+
+          gh api \
+            --method POST \
+            "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
+            -f state="$state" \
+            -f description="$description" \
+            -f context="codex-review"
