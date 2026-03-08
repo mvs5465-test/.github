@@ -30,7 +30,7 @@ jobs:
 
       - name: Write baseline commitlint config
         run: |
-          cat > /tmp/commitlint.config.cjs <<'EOF'
+          cat > commitlint.config.cjs <<'EOF'
           module.exports = {
             extends: ['@commitlint/config-conventional'],
             rules: {
@@ -42,7 +42,7 @@ jobs:
       - name: Lint commit messages
         run: |
           npx commitlint \
-            --config /tmp/commitlint.config.cjs \
+            --config commitlint.config.cjs \
             --from "${{ inputs.base_sha }}" \
             --to "${{ inputs.head_sha }}" \
             --verbose
