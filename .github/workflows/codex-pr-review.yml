@@ -5,6 +5,10 @@ on:
     secrets:
       OPENAI_API_KEY:
         required: true
+      REVIEWER_APP_ID:
+        required: true
+      REVIEWER_PRIVATE_KEY:
+        required: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
@@ -103,9 +107,16 @@ jobs:
             echo "DETAILS: ${details}"
           } > review.md
 
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.REVIEWER_APP_ID }}
+          private-key: ${{ secrets.REVIEWER_PRIVATE_KEY }}
+
       - name: Submit formal review
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           result="$(grep -E '^RESULT:' review.md | head -n1 | sed -E 's/^RESULT:[[:space:]]*//' | tr '[:lower:]' '[:upper:]')"
           body="$(cat review.md)"
