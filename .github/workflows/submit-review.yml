@@ -21,6 +21,10 @@ on:
       REVIEWER_PRIVATE_KEY:
         required: true
 
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.pr_number || github.ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   submit:
     runs-on: ubuntu-latest
